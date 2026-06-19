@@ -26,6 +26,17 @@ export function CameraTab({ onLiveChange }: CameraTabProps) {
     };
   }, [onLiveChange]);
 
+  // Force play() after the camera-wrap becomes visible in the viewport.
+  // On some Android Chrome builds, the video decoder doesn't start rendering frames
+  // until play() is called while the element has non-zero layout dimensions.
+  useEffect(() => {
+    if (!cameraOpen) return;
+    const video = videoRef.current;
+    if (!video) return;
+    console.log('[Camera] cameraOpen=true → calling play(). readyState:', video.readyState);
+    video.play().catch((err) => console.warn('[Camera] post-visibility play() rejected:', err));
+  }, [cameraOpen]);
+
   const startCamera = async () => {
     setError(null);
     setVideoReady(false);
@@ -63,6 +74,7 @@ export function CameraTab({ onLiveChange }: CameraTabProps) {
 
       console.log('[Camera] assigning srcObject to video element');
       video.srcObject = stream;
+      console.log('[Camera] srcObject assigned. video.readyState:', video.readyState);
 
       // ── Readiness detection: three events + hard timeout fallback ───
       // Different Android Chrome versions fire different events for getUserMedia streams.
@@ -131,6 +143,11 @@ export function CameraTab({ onLiveChange }: CameraTabProps) {
     canvas.getContext('2d')?.drawImage(video, 0, 0);
 
     const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+    console.log(
+      '[Camera] captured dataUrl length:', dataUrl.length,
+      '(~', Math.round((dataUrl.length * 0.75) / 1024), 'KB).',
+      'Prefix:', dataUrl.substring(0, 80),
+    );
     setPhotoUrl(dataUrl);
 
     const sizeKb = Math.round((dataUrl.length * 0.75) / 1024);
@@ -178,11 +195,17 @@ export function CameraTab({ onLiveChange }: CameraTabProps) {
         We hide the wrapper with visibility+height instead of display:none so the browser
         engine still processes the video stream and fires readiness events.
       */}
+      {/*
+        position:absolute + top:-110vw keeps the video off-screen (instead of height:0)
+        so it has real layout dimensions. height:0 caused Android Chrome to skip GPU
+        texture allocation for the video, producing black frames even when the stream
+        was technically active and videoWidth > 0.
+      */}
       <div
         style={
           cameraOpen
             ? { marginTop: 12 }
-            : { visibility: 'hidden', position: 'absolute', height: 0, overflow: 'hidden' }
+            : { position: 'absolute', top: '-110vw', left: 0, width: '100%', pointerEvents: 'none', opacity: 0 }
         }
       >
         <div className="camera-wrap">
@@ -191,7 +214,7 @@ export function CameraTab({ onLiveChange }: CameraTabProps) {
             autoPlay
             playsInline
             muted
-            style={{ display: showingPreview ? 'none' : 'block' }}
+            style={{ display: showingPreview ? 'none' : 'block', border: '5px solid red' }}
           />
           <canvas ref={canvasRef} style={{ display: 'none' }} />
           {photoUrl && <img src={photoUrl} alt="Captured field photo" />}
