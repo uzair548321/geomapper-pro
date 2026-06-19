@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>GeoMapper Pro - Sensor Suite</title>
+<style>
+  :root {
+    --bg: #0f1114;
+    --surface: #181c22;
+    --panel: #1e242d;
+    --border: #2a323f;
+    --gold: #c8952a;
+    --gold-lt: #e8b84b;
+    --blue: #3a8fc4;
+    --green: #3aac6e;
+    --orange: #d95f1a;
+    --red: #c43a3a;
+    --text-pri: #e8eaf0;
+    --text-sec: #8a96a8;
+    --text-dim: #4a5568;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'SF Mono', 'Fira Code', 'Courier New', monospace;
+    background: var(--bg);
+    color: var(--text-pri);
+    min-height: 100vh;
+    max-width: 480px;
+    margin: 0 auto;
+    padding-bottom: 40px;
+  }
+  .header {
+    background: linear-gradient(135deg, var(--surface), var(--panel));
+    border-bottom: 2px solid rgba(200,149,42,0.3);
+    padding: 14px 16px 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .eyebrow {
+    font-size: 10px;
+    color: var(--gold);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 3px;
+  }
+  .title { font-size: 17px; font-weight: 900; margin-bottom: 8px; }
+
+  .sensor-tabs {
+    display: flex;
+    gap: 0;
+    margin-top: 4px;
+  }
+  .sensor-tab {
+    flex: 1;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    color: var(--text-dim);
+    padding: 9px 4px;
+    font-size: 11px;
+    cursor: pointer;
+    font-family: inherit;
+    font-weight: 600;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+  }
+  .sensor-tab .icon { font-size: 16px; }
+  .sensor-tab.active { border-bottom-color: var(--gold); color: var(--gold-lt); }
+  .sensor-tab .dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--text-dim); margin-top: 1px;
+  }
+  .sensor-tab .dot.live { background: var(--green); box-shadow: 0 0 4px var(--green); }
+
+  .content { padding: 14px 12px; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 14px;
+    overflow: hidden;
+  }
+  .card-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-sec);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .card-body { padding: 14px; }
+
+  .sensor-btn {
+    width: 100%;
+    padding: 13px;
+    background: linear-gradient(135deg, var(--gold), var(--orange));
+    color: #0f0f0f;
+    border: none;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .sensor-btn:active { transform: scale(0.98); }
+  .sensor-btn:disabled { background: var(--border); color: var(--text-sec); cursor: wait; }
+  .sensor-btn.secondary {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    color: var(--text-pri);
+    margin-top: 8px;
+  }
+  .sensor-btn.danger { background: linear-gradient(135deg, var(--red), #8b1a1a); }
+
+  .badge {
+    background: rgba(200,149,42,0.13);
+    border: 1px solid rgba(200,149,42,0.35);
+    color: var(--gold);
+    border-radius: 4px;
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    display: inline-block;
+  }
+  .badge.live { background: rgba(58,172,110,0.15); border-color: rgba(58,172,110,0.4); color: var(--green); }
+  .badge.off { background: rgba(196,58,58,0.15); border-color: rgba(196,58,58,0.4); color: var(--red); }
+
+  .error-box {
+    background: rgba(196,58,58,0.1);
+    border: 1px solid rgba(196,58,58,0.35);
+    border-radius: 6px;
+    padding: 12px;
+    margin-top: 12px;
+    font-size: 11.5px;
+    color: #e88;
+    display: none;
+    line-height: 1.5;
+  }
+  .error-box.show { display: block; }
+
+  .coord-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+  .coord-box {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 12px;
+  }
+  .coord-label {
+    font-size: 9px; color: var(--text-sec); letter-spacing: 0.06em;
+    text-transform: uppercase; margin-bottom: 4px;
+  }
+  .coord-value { font-size: 15px; font-weight: 700; color: var(--gold-lt); font-family: monospace; }
+  .coord-value.small { font-size: 12.5px; }
+
+  .accuracy-bar-wrap { margin-top: 10px; }
+  .accuracy-label { display: flex; justify-content: space-between; font-size: 10px; color: var(--text-sec); margin-bottom: 4px; }
+  .accuracy-bar { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .accuracy-fill { height: 100%; border-radius: 3px; transition: width 0.5s, background 0.5s; }
+
+  .map-frame {
+    margin-top: 12px; border-radius: 6px; overflow: hidden;
+    border: 1px solid var(--border); height: 180px; position: relative; background: #1a1f15;
+  }
+  .map-frame iframe { width: 100%; height: 100%; border: 0; filter: invert(0.92) hue-rotate(180deg) brightness(0.95) contrast(0.9); }
+  .map-pin {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%);
+    font-size: 26px; pointer-events: none; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5)); z-index: 10;
+  }
+
+  .info-row { display: flex; justify-content: space-between; padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 12px; }
+  .info-row:last-child { border-bottom: none; }
+  .info-label { color: var(--text-sec); }
+  .info-value { color: var(--text-pri); font-weight: 600; }
+
+  .spinner {
+    width: 13px; height: 13px; border: 2px solid rgba(0,0,0,0.2);
+    border-top-color: #0f0f0f; border-radius: 50%; animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── COMPASS ── */
+  .compass-wrap { display: flex; justify-content: center; padding: 10px 0 18px; }
+  .compass-dial {
+    width: 200px; height: 200px; border-radius: 50%;
+    background: radial-gradient(circle at 50% 40%, #1c222c, #0d1014);
+    border: 2px solid var(--border);
+    position: relative;
+  }
+  .compass-needle {
+    position: absolute; top: 50%; left: 50%;
+    width: 3px; height: 80px;
+    background: linear-gradient(to top, var(--red) 50%, var(--text-pri) 50%);
+    transform-origin: bottom center;
+    transform: translate(-50%, -100%) rotate(0deg);
+    transition: transform 0.15s ease-out;
+    border-radius: 2px;
+  }
+  .compass-center {
+    position: absolute; top: 50%; left: 50%; width: 8px; height: 8px;
+    background: var(--gold); border-radius: 50%; transform: translate(-50%,-50%); z-index: 5;
+  }
+  .compass-label {
+    position: absolute; font-size: 11px; font-weight: 700; color: var(--text-sec);
+  }
+  .cl-n { top: 6px; left: 50%; transform: translateX(-50%); color: var(--gold-lt); }
+  .cl-s { bottom: 6px; left: 50%; transform: translateX(-50%); }
+  .cl-e { right: 8px; top: 50%; transform: translateY(-50%); }
+  .cl-w { left: 8px; top: 50%; transform: translateY(-50%); }
+
+  .tilt-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .tilt-box {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    padding: 12px; text-align: center;
+  }
+  .tilt-value { font-size: 24px; font-weight: 900; color: var(--blue); font-family: monospace; }
+  .tilt-label { font-size: 9px; color: var(--text-sec); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 4px; }
+
+  .dip-result {
+    margin-top: 14px; padding: 14px; background: var(--bg); border-radius: 8px;
+    border: 2px solid var(--gold); text-align: center;
+  }
+  .dip-result-label { font-size: 10px; color: var(--text-sec); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .dip-result-value { font-size: 30px; font-weight: 900; color: var(--gold-lt); font-family: monospace; }
+  .dip-result-sub { font-size: 11px; color: var(--text-sec); margin-top: 4px; }
+
+  .level-bubble-wrap {
+    width: 120px; height: 120px; border-radius: 50%; background: var(--bg);
+    border: 2px solid var(--border); position: relative; margin: 10px auto;
+  }
+  .level-bubble-ring { position: absolute; top: 50%; left: 50%; width: 36px; height: 36px; border-radius: 50%; border: 1.5px dashed var(--text-dim); transform: translate(-50%,-50%); }
+  .level-bubble {
+    width: 20px; height: 20px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, var(--green), #1a6b40);
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    transition: transform 0.15s ease-out;
+    box-shadow: 0 0 8px rgba(58,172,110,0.6);
+  }
+
+  /* ── CAMERA ── */
+  .camera-wrap {
+    position: relative; width: 100%; aspect-ratio: 4/3; background: #000;
+    border-radius: 8px; overflow: hidden; border: 1px solid var(--border);
+  }
+  .camera-wrap video, .camera-wrap canvas, .camera-wrap img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+  }
+  .camera-overlay {
+    position: absolute; inset: 0; pointer-events: none;
+    background:
+      linear-gradient(to right, transparent 32%, rgba(200,149,42,0.3) 32%, rgba(200,149,42,0.3) 33%, transparent 33%),
+      linear-gradient(to right, transparent 66%, rgba(200,149,42,0.3) 66%, rgba(200,149,42,0.3) 67%, transparent 67%),
+      linear-gradient(to bottom, transparent 32%, rgba(200,149,42,0.3) 32%, rgba(200,149,42,0.3) 33%, transparent 33%),
+      linear-gradient(to bottom, transparent 66%, rgba(200,149,42,0.3) 66%, rgba(200,149,42,0.3) 67%, transparent 67%);
+  }
+  .camera-controls { display: flex; gap: 8px; margin-top: 10px; }
+  .camera-controls .sensor-btn { margin-top: 0; }
+  .scale-tag {
+    position: absolute; bottom: 8px; left: 8px;
+    background: rgba(0,0,0,0.6); color: var(--gold-lt);
+    font-size: 9px; padding: 3px 7px; border-radius: 4px; pointer-events: none;
+  }
+
+  .photo-meta { margin-top: 10px; font-size: 11px; color: var(--text-sec); line-height: 1.6; }
+
+  .footer-note {
+    text-align: center; font-size: 10px; color: var(--text-dim);
+    padding: 16px 20px 0; line-height: 1.6;
+  }
+
+  .diag-box { font-size: 10px; }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="eyebrow">GeoMapper Pro &middot; Sensor Suite v0.2</div>
+    <div class="title">Field Sensor Module</div>
+    <div class="sensor-tabs">
+      <button class="sensor-tab active" data-tab="gps" onclick="switchTab('gps')">
+        <span class="icon">📍</span><span>GPS</span><span class="dot" id="dotGps"></span>
+      </button>
+      <button class="sensor-tab" data-tab="compass" onclick="switchTab('compass')">
+        <span class="icon">🧭</span><span>Compass/Dip</span><span class="dot" id="dotCompass"></span>
+      </button>
+      <button class="sensor-tab" data-tab="camera" onclick="switchTab('camera')">
+        <span class="icon">📷</span><span>Camera</span><span class="dot" id="dotCamera"></span>
+      </button>
+      <button class="sensor-tab" data-tab="diag" onclick="switchTab('diag')">
+        <span class="icon">⚙</span><span>Diag</span><span class="dot" id="dotDiag"></span>
+      </button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ═══════════════ GPS PANEL ═══════════════ -->
+    <div class="panel active" id="panel-gps">
+      <div class="card">
+        <div class="card-header">📍 Live GPS Location</div>
+        <div class="card-body">
+          <p style="font-size:11.5px; color:var(--text-sec); line-height:1.6; margin-bottom:12px;">
+            Uses navigator.geolocation — your device's real GPS chip via the browser.
+            Phone: ~3-10m accuracy. Laptop: WiFi-based, ~50-500m.
+          </p>
+          <button class="sensor-btn" id="gpsBtn" onclick="captureLocation()">📡 Capture GPS Location</button>
+          <button class="sensor-btn secondary" id="watchBtn" onclick="toggleWatch()">▶ Start Live Tracking</button>
+
+          <div class="error-box" id="gpsError"></div>
+
+          <div id="gpsReadout" style="display:none; margin-top:14px;">
+            <div class="coord-grid">
+              <div class="coord-box"><div class="coord-label">Latitude</div><div class="coord-value" id="latVal">--</div></div>
+              <div class="coord-box"><div class="coord-label">Longitude</div><div class="coord-value" id="lonVal">--</div></div>
+            </div>
+            <div class="coord-grid">
+              <div class="coord-box"><div class="coord-label">Altitude</div><div class="coord-value small" id="altVal">--</div></div>
+              <div class="coord-box"><div class="coord-label">Captured</div><div class="coord-value small" id="timeVal">--</div></div>
+            </div>
+            <div class="accuracy-bar-wrap">
+              <div class="accuracy-label"><span>Accuracy <span id="accTag" class="badge"></span></span><span id="accValue" style="color:var(--gold-lt); font-weight:700;">-- m</span></div>
+              <div class="accuracy-bar"><div class="accuracy-fill" id="accFill" style="width:0%; background:var(--gold);"></div></div>
+            </div>
+            <div class="map-frame"><div class="map-pin">📍</div><iframe id="mapIframe" src="" loading="lazy"></iframe></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ COMPASS/DIP PANEL ═══════════════ -->
+    <div class="panel" id="panel-compass">
+      <div class="card">
+        <div class="card-header">🧭 Compass &amp; Dip Meter</div>
+        <div class="card-body">
+          <p style="font-size:11.5px; color:var(--text-sec); line-height:1.6; margin-bottom:8px;">
+            Uses DeviceOrientationEvent — your phone's gyroscope/magnetometer.
+            <strong style="color:var(--orange);">Phone only — laptops do not have these sensors.</strong>
+          </p>
+          <button class="sensor-btn" id="compassBtn" onclick="startCompass()">🧭 Enable Compass &amp; Tilt Sensor</button>
+
+          <div class="error-box" id="compassError"></div>
+
+          <div id="compassReadout" style="display:none;">
+            <div class="compass-wrap">
+              <div class="compass-dial">
+                <span class="compass-label cl-n">N</span>
+                <span class="compass-label cl-e">E</span>
+                <span class="compass-label cl-s">S</span>
+                <span class="compass-label cl-w">W</span>
+                <div class="compass-needle" id="compassNeedle"></div>
+                <div class="compass-center"></div>
+              </div>
+            </div>
+
+            <div class="tilt-grid">
+              <div class="tilt-box"><div class="tilt-value" id="betaVal">0°</div><div class="tilt-label">Beta (front-back tilt)</div></div>
+              <div class="tilt-box"><div class="tilt-value" id="gammaVal">0°</div><div class="tilt-label">Gamma (left-right tilt)</div></div>
+            </div>
+
+            <div style="text-align:center; margin-top:6px;">
+              <div class="level-bubble-wrap">
+                <div class="level-bubble-ring"></div>
+                <div class="level-bubble" id="levelBubble"></div>
+              </div>
+              <div style="font-size:10px; color:var(--text-sec);">Place phone flat against rock surface — center bubble = surface is level</div>
+            </div>
+
+            <div class="dip-result">
+              <div class="dip-result-label">Joint Dip Direction (Compass Heading)</div>
+              <div class="dip-result-value" id="dipDirVal">0°</div>
+              <div class="dip-result-sub" id="dipCompassName">N</div>
+            </div>
+            <div class="dip-result" style="margin-top:8px; border-color:var(--blue);">
+              <div class="dip-result-label">Estimated Dip Angle (Surface Tilt from Horizontal)</div>
+              <div class="dip-result-value" id="dipAngleVal" style="color:var(--blue);">0°</div>
+              <div class="dip-result-sub">Hold phone flat on the rock joint surface</div>
+            </div>
+
+            <button class="sensor-btn secondary" onclick="lockReading()" style="margin-top:12px;">📌 Lock This Reading</button>
+            <div id="lockedReading" style="display:none; margin-top:10px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ CAMERA PANEL ═══════════════ -->
+    <div class="panel" id="panel-camera">
+      <div class="card">
+        <div class="card-header">📷 Face Photo Capture</div>
+        <div class="card-body">
+          <p style="font-size:11.5px; color:var(--text-sec); line-height:1.6; margin-bottom:10px;">
+            Uses navigator.mediaDevices — your device camera. Captured photos can be
+            sent to Claude's vision model for AI rock face analysis.
+          </p>
+          <button class="sensor-btn" id="cameraBtn" onclick="startCamera()">📷 Open Camera</button>
+
+          <div class="error-box" id="cameraError"></div>
+
+          <div id="cameraView" style="display:none; margin-top:12px;">
+            <div class="camera-wrap">
+              <video id="videoFeed" autoplay playsinline muted></video>
+              <canvas id="photoCanvas" style="display:none;"></canvas>
+              <img id="photoPreview" style="display:none;">
+              <div class="camera-overlay" id="cameraGrid"></div>
+              <span class="scale-tag" id="scaleTag" style="display:none;">Reference: hold a 1m scale bar in frame</span>
+            </div>
+
+            <div class="camera-controls">
+              <button class="sensor-btn" id="shutterBtn" onclick="takePhoto()" style="flex:1;">📸 Capture</button>
+              <button class="sensor-btn secondary" id="retakeBtn" onclick="retakePhoto()" style="display:none; flex:1;">↺ Retake</button>
+            </div>
+
+            <div class="photo-meta" id="photoMeta"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══════════════ DIAGNOSTICS PANEL ═══════════════ -->
+    <div class="panel" id="panel-diag">
+      <div class="card">
+        <div class="card-header">⚙ Sensor Diagnostics</div>
+        <div class="card-body diag-box">
+          <div class="info-row"><span class="info-label">Geolocation API</span><span class="info-value" id="diagGeo">Checking...</span></div>
+          <div class="info-row"><span class="info-label">DeviceOrientation API</span><span class="info-value" id="diagOrient">Checking...</span></div>
+          <div class="info-row"><span class="info-label">Camera API (getUserMedia)</span><span class="info-value" id="diagCam">Checking...</span></div>
+          <div class="info-row"><span class="info-label">Protocol</span><span class="info-value" id="diagProtocol">Checking...</span></div>
+          <div class="info-row"><span class="info-label">Device Type</span><span class="info-value" id="diagDevice">Checking...</span></div>
+          <div class="info-row"><span class="info-label">User Agent</span><span class="info-value" id="diagUA" style="font-size:9px; word-break:break-all; text-align:right; max-width:60%;">--</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">🛠 For Developers</div>
+        <div class="card-body">
+          <p style="font-size:11px; color:var(--text-sec); line-height:1.7;">
+            <strong style="color:var(--text-pri);">This file uses only native browser APIs</strong> — no
+            external libraries, no build step. Open browser DevTools Console (F12) to see
+            raw sensor event data being logged.
+            <br><br>
+            <strong style="color:var(--orange);">HTTPS required:</strong> All three sensors
+            (geolocation, device orientation, camera) are blocked by browsers on plain HTTP
+            or file:// URLs. Deploy to Vercel/Netlify for a free HTTPS domain, or test on
+            <code style="background:var(--bg); padding:1px 4px; border-radius:3px;">localhost</code>.
+            <br><br>
+            <strong style="color:var(--orange);">iOS 13+ note:</strong> Safari requires an explicit
+            permission prompt for DeviceOrientationEvent — this is handled in the code via
+            <code style="background:var(--bg); padding:1px 4px; border-radius:3px;">requestPermission()</code>.
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="footer-note">
+    GeoMapper Pro v0.2 — Sensor Suite Test Module<br>
+    All sensor data stays on this device. Nothing is uploaded.
+  </div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ════════════════════════════════════════════════════════════════════════════
+function switchTab(tab) {
+  document.querySelectorAll('.sensor-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.sensor-tab[data-tab="${tab}"]`).classList.add('active');
+  document.getElementById('panel-' + tab).classList.add('active');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// DIAGNOSTICS
+// ════════════════════════════════════════════════════════════════════════════
+function runDiagnostics() {
+  const geoOk = 'geolocation' in navigator;
+  set('diagGeo', geoOk ? 'Supported' : 'NOT Supported', geoOk);
+
+  const orientOk = 'DeviceOrientationEvent' in window;
+  set('diagOrient', orientOk ? 'Supported' : 'NOT Supported', orientOk);
+
+  const camOk = !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  set('diagCam', camOk ? 'Supported' : 'NOT Supported', camOk);
+
+  const isHttps = location.protocol === 'https:' || ['localhost','127.0.0.1'].includes(location.hostname);
+  set('diagProtocol', (isHttps ? 'Secure ✓ ' : 'INSECURE ✗ ') + '(' + location.protocol + ')', isHttps);
+
+  const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  document.getElementById('diagDevice').textContent = isMobile ? 'Mobile' : 'Desktop/Laptop';
+  document.getElementById('diagUA').textContent = navigator.userAgent;
+
+  if (!isHttps) {
+    showErr('gpsError', 'Sensors require HTTPS. This page is on ' + location.protocol + ' — deploy to Vercel/Netlify or use localhost for full sensor access.');
+  }
+}
+function set(id, text, ok) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.style.color = ok ? '#3aac6e' : '#c43a3a';
+}
+function showErr(id, msg) {
+  const box = document.getElementById(id);
+  box.textContent = '⚠️ ' + msg;
+  box.classList.add('show');
+}
+function hideErr(id) { document.getElementById(id).classList.remove('show'); }
+
+function setDot(id, live) {
+  document.getElementById(id).className = 'dot' + (live ? ' live' : '');
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// GPS SENSOR
+// ════════════════════════════════════════════════════════════════════════════
+let watchId = null;
+
+function accuracyColor(acc) {
+  if (acc <= 10)  return { color: '#3aac6e', tag: 'EXCELLENT' };
+  if (acc <= 25)  return { color: '#3a8fc4', tag: 'GOOD' };
+  if (acc <= 50)  return { color: '#c8952a', tag: 'FAIR' };
+  if (acc <= 100) return { color: '#d95f1a', tag: 'POOR' };
+  return { color: '#c43a3a', tag: 'VERY POOR' };
+}
+
+function captureLocation() {
+  hideErr('gpsError');
+  const btn = document.getElementById('gpsBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Acquiring GPS...';
+
+  if (!('geolocation' in navigator)) {
+    showErr('gpsError', 'Geolocation not supported on this device.');
+    resetGpsBtn(); return;
+  }
+  navigator.geolocation.getCurrentPosition(onGpsSuccess, onGpsError, {
+    enableHighAccuracy: true, timeout: 15000, maximumAge: 0
+  });
+}
+
+function onGpsSuccess(position) {
+  setDot('dotGps', true);
+  const { latitude, longitude, accuracy, altitude } = position.coords;
+  console.log('[GPS]', { latitude, longitude, accuracy, altitude });
+
+  document.getElementById('latVal').textContent = latitude.toFixed(6) + '°';
+  document.getElementById('lonVal').textContent = longitude.toFixed(6) + '°';
+  document.getElementById('altVal').textContent = altitude !== null ? altitude.toFixed(1) + ' m' : 'N/A';
+  document.getElementById('timeVal').textContent = new Date(position.timestamp).toLocaleTimeString();
+
+  const accInfo = accuracyColor(accuracy);
+  document.getElementById('accValue').textContent = accuracy.toFixed(1) + ' m';
+  document.getElementById('accValue').style.color = accInfo.color;
+  document.getElementById('accFill').style.width = Math.min(100, 100 - Math.min(accuracy, 100)) + '%';
+  document.getElementById('accFill').style.background = accInfo.color;
+  document.getElementById('accTag').textContent = accInfo.tag;
+  document.getElementById('accTag').style.color = accInfo.color;
+
+  const delta = 0.003;
+  const bbox = [longitude - delta, latitude - delta, longitude + delta, latitude + delta].join('%2C');
+  document.getElementById('mapIframe').src = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${latitude}%2C${longitude}`;
+
+  document.getElementById('gpsReadout').style.display = 'block';
+  resetGpsBtn();
+}
+
+function onGpsError(error) {
+  setDot('dotGps', false);
+  let msg = 'Unknown error: ' + error.message;
+  if (error.code === error.PERMISSION_DENIED) msg = 'Location permission denied. Allow it in browser settings.';
+  if (error.code === error.POSITION_UNAVAILABLE) msg = 'Location unavailable. Try a different spot.';
+  if (error.code === error.TIMEOUT) msg = 'GPS timed out. Try again outdoors.';
+  showErr('gpsError', msg);
+  resetGpsBtn();
+}
+function resetGpsBtn() {
+  const btn = document.getElementById('gpsBtn');
+  btn.disabled = false;
+  btn.innerHTML = '📡 Capture GPS Location';
+}
+function toggleWatch() {
+  const btn = document.getElementById('watchBtn');
+  if (watchId === null) {
+    watchId = navigator.geolocation.watchPosition(onGpsSuccess, onGpsError, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+    btn.textContent = '⏸ Stop Live Tracking';
+  } else {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+    btn.textContent = '▶ Start Live Tracking';
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// COMPASS / DIP SENSOR
+// ════════════════════════════════════════════════════════════════════════════
+let compassActive = false;
+
+function compassDirName(deg) {
+  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  return dirs[Math.round(deg / 22.5) % 16];
+}
+
+function startCompass() {
+  hideErr('compassError');
+  if (!('DeviceOrientationEvent' in window)) {
+    showErr('compassError', 'DeviceOrientationEvent not supported. This sensor requires a phone with a gyroscope/compass — laptops do not have this hardware.');
+    return;
+  }
+
+  // iOS 13+ requires explicit permission
+  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+    DeviceOrientationEvent.requestPermission()
+      .then(state => {
+        if (state === 'granted') { enableCompassListener(); }
+        else { showErr('compassError', 'Motion sensor permission denied. Enable it in Settings > Safari > Motion & Orientation Access.'); }
+      })
+      .catch(err => showErr('compassError', 'Permission request failed: ' + err.message));
+  } else {
+    // Android / older browsers — no explicit permission needed
+    enableCompassListener();
+  }
+}
+
+function enableCompassListener() {
+  compassActive = true;
+  document.getElementById('compassReadout').style.display = 'block';
+  document.getElementById('compassBtn').textContent = '✓ Compass Active — Move Phone';
+  document.getElementById('compassBtn').disabled = true;
+  setDot('dotCompass', true);
+
+  window.addEventListener('deviceorientation', handleOrientation, true);
+}
+
+function handleOrientation(event) {
+  // alpha = compass heading (0-360, 0 = North)
+  // beta  = front-back tilt (-180 to 180)
+  // gamma = left-right tilt (-90 to 90)
+  let alpha = event.alpha;
+  const beta = event.beta;
+  const gamma = event.gamma;
+
+  if (alpha === null) return;
+
+  // webkitCompassHeading is more accurate on iOS (already true-north corrected)
+  if (typeof event.webkitCompassHeading !== 'undefined' && event.webkitCompassHeading !== null) {
+    alpha = event.webkitCompassHeading;
+  } else {
+    alpha = 360 - alpha; // adjust for standard convention on Android
+  }
+
+  console.log('[ORIENTATION]', { alpha, beta, gamma });
+
+  document.getElementById('compassNeedle').style.transform =
+    `translate(-50%, -100%) rotate(${alpha}deg)`;
+
+  document.getElementById('dipDirVal').textContent = Math.round(alpha) + '°';
+  document.getElementById('dipCompassName').textContent = compassDirName(alpha);
+
+  document.getElementById('betaVal').textContent = Math.round(beta) + '°';
+  document.getElementById('gammaVal').textContent = Math.round(gamma) + '°';
+
+  // Dip angle = how far the phone is tilted from flat/horizontal
+  // when phone is laid flat against a dipping surface
+  const dipAngle = Math.min(90, Math.round(Math.sqrt(beta*beta + gamma*gamma)));
+  document.getElementById('dipAngleVal').textContent = dipAngle + '°';
+
+  // Level bubble — moves opposite to tilt direction, like a real bubble level
+  const maxOffset = 42;
+  const bx = Math.max(-maxOffset, Math.min(maxOffset, (gamma / 45) * maxOffset));
+  const by = Math.max(-maxOffset, Math.min(maxOffset, (beta / 45) * maxOffset));
+  document.getElementById('levelBubble').style.transform = `translate(calc(-50% + ${bx}px), calc(-50% + ${by}px))`;
+}
+
+function lockReading() {
+  const dir = document.getElementById('dipDirVal').textContent;
+  const dirName = document.getElementById('dipCompassName').textContent;
+  const angle = document.getElementById('dipAngleVal').textContent;
+  const ts = new Date().toLocaleTimeString();
+
+  const box = document.getElementById('lockedReading');
+  box.style.display = 'block';
+  box.innerHTML = `
+    <div style="background:var(--bg); border:1px solid var(--green); border-radius:6px; padding:10px 12px;">
+      <div style="font-size:10px; color:var(--green); font-weight:700; margin-bottom:4px;">🔒 LOCKED READING — ${ts}</div>
+      <div style="font-size:13px; color:var(--text-pri);">Dip/DipDir: <strong style="color:var(--gold-lt);">${angle} / ${dir} (${dirName})</strong></div>
+    </div>`;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// CAMERA SENSOR
+// ════════════════════════════════════════════════════════════════════════════
+let cameraStream = null;
+
+async function startCamera() {
+  hideErr('cameraError');
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    showErr('cameraError', 'Camera API not supported on this browser.');
+    return;
+  }
+  const btn = document.getElementById('cameraBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Requesting Camera...';
+
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false
+    });
+    const video = document.getElementById('videoFeed');
+    video.srcObject = cameraStream;
+    document.getElementById('cameraView').style.display = 'block';
+    document.getElementById('scaleTag').style.display = 'block';
+    setDot('dotCamera', true);
+    btn.style.display = 'none';
+  } catch (err) {
+    let msg = 'Camera access failed: ' + err.message;
+    if (err.name === 'NotAllowedError') msg = 'Camera permission denied. Allow camera access in browser settings.';
+    if (err.name === 'NotFoundError') msg = 'No camera found on this device.';
+    showErr('cameraError', msg);
+    btn.disabled = false;
+    btn.innerHTML = '📷 Open Camera';
+  }
+}
+
+function takePhoto() {
+  const video = document.getElementById('videoFeed');
+  const canvas = document.getElementById('photoCanvas');
+  const preview = document.getElementById('photoPreview');
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+  preview.src = dataUrl;
+
+  video.style.display = 'none';
+  preview.style.display = 'block';
+  document.getElementById('cameraGrid').style.display = 'none';
+  document.getElementById('shutterBtn').style.display = 'none';
+  document.getElementById('retakeBtn').style.display = 'block';
+
+  const sizeKb = Math.round((dataUrl.length * 0.75) / 1024);
+  document.getElementById('photoMeta').innerHTML = `
+    <strong style="color:var(--text-pri);">Photo captured</strong> — ${canvas.width}x${canvas.height}px, ~${sizeKb}KB<br>
+    Ready to attach to face mapping record or send to Claude vision for analysis.
+  `;
+
+  console.log('[CAMERA] Photo captured:', canvas.width, 'x', canvas.height, '~' + sizeKb + 'KB');
+}
+
+function retakePhoto() {
+  document.getElementById('videoFeed').style.display = 'block';
+  document.getElementById('photoPreview').style.display = 'none';
+  document.getElementById('cameraGrid').style.display = 'block';
+  document.getElementById('shutterBtn').style.display = 'block';
+  document.getElementById('retakeBtn').style.display = 'none';
+  document.getElementById('photoMeta').innerHTML = '';
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════════════════════════
+runDiagnostics();
+</script>
+
+</body>
+</html>
