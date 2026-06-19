@@ -55,6 +55,13 @@ export function CompassTab({ onLiveChange }: CompassTabProps) {
     });
   }, []);
 
+  // Reset live indicator when component unmounts (tab switch on mobile)
+  useEffect(() => {
+    return () => {
+      onLiveChange(false);
+    };
+  }, [onLiveChange]);
+
   useEffect(() => {
     if (!active) return;
 

@@ -14,18 +14,22 @@ export function CameraTab({ onLiveChange }: CameraTabProps) {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoMeta, setPhotoMeta] = useState<string | null>(null);
   const [showSaved, setShowSaved] = useState(false);
 
+  // Stop all tracks and clear live indicator on unmount (tab switch on mobile)
   useEffect(() => {
     return () => {
       streamRef.current?.getTracks().forEach((track) => track.stop());
+      onLiveChange(false);
     };
-  }, []);
+  }, [onLiveChange]);
 
   const startCamera = async () => {
     setError(null);
+    setVideoReady(false);
     if (!navigator.mediaDevices?.getUserMedia) {
       setError('Camera API not supported on this browser.');
       return;
@@ -42,9 +46,27 @@ export function CameraTab({ onLiveChange }: CameraTabProps) {
         audio: false,
       });
       streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+
+      const video = videoRef.current;
+      if (video) {
+        video.srcObject = stream;
+        // loadedmetadata fires once real dimensions are known — required on Android Chrome
+        // before this event video.videoWidth/videoHeight are 0
+        video.addEventListener(
+          'loadedmetadata',
+          () => {
+            console.log('[Camera] stream ready:', video.videoWidth, '×', video.videoHeight);
+            setVideoReady(true);
+            // Explicit play() call is required on iOS Safari and some Android Chrome versions
+            // even though autoPlay is set — play() returns a Promise so it must be caught
+            video.play().catch((err) => {
+              console.warn('[Camera] play() rejected:', err);
+            });
+          },
+          { once: true },
+        );
       }
+
       setCameraOpen(true);
       onLiveChange(true);
     } catch (err) {
@@ -55,6 +77,10 @@ export function CameraTab({ onLiveChange }: CameraTabProps) {
           msg = 'Camera permission denied. Allow camera access in browser settings.';
         } else if (err.name === 'NotFoundError') {
           msg = 'No camera found on this device.';
+        } else if (err.name === 'NotReadableError') {
+          msg = 'Camera is already in use by another app. Close it and try again.';
+        } else if (err.name === 'OverconstrainedError') {
+          msg = 'Camera does not support the requested resolution. Try a different camera app setting.';
         }
       }
       setError(msg);
@@ -67,6 +93,12 @@ export function CameraTab({ onLiveChange }: CameraTabProps) {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
+
+    // Guard: video dimensions are 0 until loadedmetadata fires
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      setError('Camera not ready yet — wait for the preview to appear before capturing.');
+      return;
+    }
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
@@ -93,6 +125,7 @@ export function CameraTab({ onLiveChange }: CameraTabProps) {
   const retakePhoto = () => {
     setPhotoUrl(null);
     setPhotoMeta(null);
+    // Stream is still running; videoReady stays true so Capture is immediately available
   };
 
   const showingPreview = photoUrl !== null;
@@ -137,8 +170,13 @@ export function CameraTab({ onLiveChange }: CameraTabProps) {
 
           <div className="camera-controls">
             {!showingPreview ? (
-              <button className="sensor-btn" onClick={takePhoto} type="button">
-                📸 Capture
+              <button
+                className="sensor-btn"
+                onClick={takePhoto}
+                type="button"
+                disabled={!videoReady}
+              >
+                {videoReady ? '📸 Capture' : '⏳ Waiting for camera…'}
               </button>
             ) : (
               <button className="sensor-btn secondary" onClick={retakePhoto} type="button">

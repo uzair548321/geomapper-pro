@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, ErrorBox, SavedBadge, Spinner } from './ui';
 import {
   accuracyInfo,
@@ -29,6 +29,18 @@ export function GpsTab({ onLiveChange }: GpsTabProps) {
   const [watching, setWatching] = useState(false);
   const [watchId, setWatchId] = useState<number | null>(null);
   const [showSaved, setShowSaved] = useState(false);
+  // Ref mirrors watchId so the unmount cleanup always sees the current value (avoids stale closure)
+  const watchIdRef = useRef<number | null>(null);
+
+  // Clear any active watch and reset live indicator when tab is left / component unmounts
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+      onLiveChange(false);
+    };
+  }, [onLiveChange]);
 
   const applyPosition = useCallback(
     (position: GeolocationPosition) => {
@@ -94,6 +106,7 @@ export function GpsTab({ onLiveChange }: GpsTabProps) {
   const toggleWatch = () => {
     if (watchId !== null) {
       navigator.geolocation.clearWatch(watchId);
+      watchIdRef.current = null;
       setWatchId(null);
       setWatching(false);
       onLiveChange(!!reading);
@@ -108,6 +121,7 @@ export function GpsTab({ onLiveChange }: GpsTabProps) {
       handleGpsError,
       GPS_OPTIONS,
     );
+    watchIdRef.current = id;
     setWatchId(id);
     setWatching(true);
   };
