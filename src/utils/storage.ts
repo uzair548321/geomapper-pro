@@ -31,3 +31,12 @@ export function loadRecords(): GeoRecord[] {
     return [];
   }
 }
+
+export function deleteRecord(id: string): void {
+  try {
+    const existing = loadRecords().filter((r) => r.id !== id);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(existing));
+  } catch {
+    // Quota exceeded or storage unavailable
+  }
+}

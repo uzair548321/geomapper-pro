@@ -1004,3 +1004,205 @@ body {
     text-align: left;
   }
 }
+
+/* ── Compass metadata form ── */
+.meta-form {
+  margin-top: 14px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px;
+}
+
+.meta-form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--gold-lt);
+}
+
+.meta-field {
+  margin-bottom: 10px;
+}
+
+.meta-label {
+  display: block;
+  font-size: 9px;
+  color: var(--text-sec);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+
+.meta-select,
+.meta-textarea {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-pri);
+  font-family: inherit;
+  font-size: 12px;
+  padding: 8px 10px;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.meta-select:focus,
+.meta-textarea:focus {
+  border-color: var(--gold);
+}
+
+.meta-textarea {
+  resize: vertical;
+  min-height: 64px;
+  line-height: 1.5;
+}
+
+/* ── Records tab ── */
+.filter-btn {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-sec);
+  font-family: inherit;
+  font-size: 11px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.filter-btn.active {
+  background: rgba(200, 149, 42, 0.15);
+  border-color: rgba(200, 149, 42, 0.5);
+  color: var(--gold-lt);
+}
+
+.record-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.record-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.record-type-badge {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-pri);
+  flex: 1;
+}
+
+.record-quality-badge {
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid;
+  border-radius: 4px;
+  padding: 1px 7px;
+  line-height: 1.4;
+}
+
+.record-delete-btn {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  border-radius: 3px;
+  line-height: 1;
+  font-family: inherit;
+}
+
+.record-delete-btn:hover {
+  color: var(--red);
+}
+
+.record-card-body {
+  padding: 10px 12px;
+}
+
+.record-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 11.5px;
+}
+
+.record-row:last-of-type {
+  border-bottom: none;
+}
+
+.record-label {
+  color: var(--text-sec);
+  flex-shrink: 0;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.record-value {
+  color: var(--text-pri);
+  font-weight: 600;
+  text-align: right;
+}
+
+.record-notes {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--text-sec);
+  line-height: 1.5;
+  font-style: italic;
+}
+
+.record-timestamp {
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+/* ── Export table ── */
+.export-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.export-table th {
+  background: var(--surface);
+  color: var(--text-sec);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 6px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.export-table td {
+  padding: 5px 8px;
+  color: var(--text-pri);
+  border-bottom: 1px solid var(--border);
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.export-table tr:last-child td {
+  border-bottom: none;
+}

@@ -2,11 +2,17 @@ import { useState } from 'react';
 import { CameraTab } from './components/CameraTab';
 import { CompassTab } from './components/CompassTab';
 import { DiagnosticsTab } from './components/DiagnosticsTab';
+import { ExportTab } from './components/ExportTab';
 import { GpsTab } from './components/GpsTab';
 import { BottomNav, SidebarNav, StatusBadges } from './components/Navigation';
+import { RecordsTab } from './components/RecordsTab';
 import { ReportTab } from './components/ReportTab';
+import { StereonetView } from './components/StereonetView';
 import { useBreakpoint } from './hooks/useBreakpoint';
 import { type TabId } from './utils/sensors';
+
+// Tabs that live in the original dashboard grid on desktop
+const DASHBOARD_TABS = new Set<TabId>(['gps', 'compass', 'camera', 'diag', 'report']);
 
 export default function App() {
   const breakpoint = useBreakpoint();
@@ -17,6 +23,9 @@ export default function App() {
     gps: false,
     compass: false,
     camera: false,
+    stereonet: false,
+    records: false,
+    export: false,
     diag: false,
     report: false,
   });
@@ -27,11 +36,12 @@ export default function App() {
 
   const handleNavSelect = (tab: TabId) => {
     setActiveTab(tab);
-    if (isDesktop) {
+    if (isDesktop && DASHBOARD_TABS.has(tab)) {
       document.getElementById(`panel-${tab}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 
+  // All 5 original sensor panels — rendered simultaneously in dashboard grid on desktop
   const sensorPanels = (
     <>
       <section className="panel-section" id="panel-gps" aria-label="GPS">
@@ -43,23 +53,16 @@ export default function App() {
       <section className="panel-section" id="panel-camera" aria-label="Camera">
         <CameraTab onLiveChange={(live) => setLive('camera', live)} />
       </section>
-      <section
-        className="panel-section panel-section--diag"
-        id="panel-diag"
-        aria-label="Diagnostics"
-      >
+      <section className="panel-section panel-section--diag" id="panel-diag" aria-label="Diagnostics">
         <DiagnosticsTab />
       </section>
-      <section
-        className="panel-section panel-section--report"
-        id="panel-report"
-        aria-label="Export Report"
-      >
+      <section className="panel-section panel-section--report" id="panel-report" aria-label="PDF Report">
         <ReportTab />
       </section>
     </>
   );
 
+  // Single-tab panel (mobile/tablet always; desktop for the 3 new utility tabs)
   const tabbedPanel = (
     <>
       {activeTab === 'gps' && (
@@ -77,6 +80,21 @@ export default function App() {
           <CameraTab onLiveChange={(live) => setLive('camera', live)} />
         </section>
       )}
+      {activeTab === 'stereonet' && (
+        <section className="panel-section" id="panel-stereonet">
+          <StereonetView />
+        </section>
+      )}
+      {activeTab === 'records' && (
+        <section className="panel-section" id="panel-records">
+          <RecordsTab />
+        </section>
+      )}
+      {activeTab === 'export' && (
+        <section className="panel-section" id="panel-export">
+          <ExportTab />
+        </section>
+      )}
       {activeTab === 'diag' && (
         <section className="panel-section" id="panel-diag">
           <DiagnosticsTab />
@@ -89,6 +107,9 @@ export default function App() {
       )}
     </>
   );
+
+  // On desktop: show dashboard grid for original sensor tabs; tabbed view for utility tabs
+  const showDashboard = isDesktop && DASHBOARD_TABS.has(activeTab);
 
   return (
     <div className="app-shell">
@@ -108,8 +129,8 @@ export default function App() {
           <StatusBadges liveDots={liveDots} />
         </header>
 
-        <main className={`content${isDesktop ? ' content--dashboard' : ''}`}>
-          {isDesktop ? (
+        <main className={`content${showDashboard ? ' content--dashboard' : ''}`}>
+          {showDashboard ? (
             <div className="dashboard-grid">{sensorPanels}</div>
           ) : (
             <div className="tabbed-grid">{tabbedPanel}</div>

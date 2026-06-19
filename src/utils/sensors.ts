@@ -1,4 +1,4 @@
-export type TabId = 'gps' | 'compass' | 'camera' | 'diag' | 'report';
+export type TabId = 'gps' | 'compass' | 'camera' | 'stereonet' | 'records' | 'export' | 'diag' | 'report';
 
 export interface TabConfig {
   id: TabId;
@@ -7,11 +7,14 @@ export interface TabConfig {
 }
 
 export const TABS: TabConfig[] = [
-  { id: 'gps', label: 'GPS', icon: '📍' },
-  { id: 'compass', label: 'Compass/Dip', icon: '🧭' },
-  { id: 'camera', label: 'Camera', icon: '📷' },
-  { id: 'diag', label: 'Diagnostics', icon: '⚙' },
-  { id: 'report', label: 'Export', icon: '📄' },
+  { id: 'gps',       label: 'GPS',        icon: '📍' },
+  { id: 'compass',   label: 'Compass',    icon: '🧭' },
+  { id: 'camera',    label: 'Camera',     icon: '📷' },
+  { id: 'stereonet', label: 'Stereonet',  icon: '◎' },
+  { id: 'records',   label: 'Records',    icon: '📋' },
+  { id: 'export',    label: 'Export',     icon: '⬇' },
+  { id: 'diag',      label: 'Diag',       icon: '⚙' },
+  { id: 'report',    label: 'PDF',        icon: '📄' },
 ];
 
 export interface GpsReading {

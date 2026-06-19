@@ -60,7 +60,7 @@ interface StatusBadgesProps {
 export function StatusBadges({ liveDots }: StatusBadgesProps) {
   return (
     <div className="status-badges" aria-label="Live sensor status">
-      {TABS.filter((t) => t.id !== 'diag' && t.id !== 'report').map((tab) => (
+      {TABS.filter((t) => t.id === 'gps' || t.id === 'compass' || t.id === 'camera').map((tab) => (
         <span
           key={tab.id}
           className={`status-badge${liveDots[tab.id] ? ' live' : ''}`}
