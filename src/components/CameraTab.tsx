@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Card, ErrorBox, SavedBadge, Spinner } from './ui';
 import { saveRecord } from '../utils/storage';
 
@@ -18,6 +18,16 @@ export function CameraTab({ onLiveChange }: CameraTabProps) {
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [photoMeta, setPhotoMeta] = useState<string | null>(null);
   const [showSaved, setShowSaved] = useState(false);
+  const [debugLog, setDebugLog] = useState<string[]>([]);
+  const [debugOpen, setDebugOpen] = useState(false);
+
+  // setDebugLog setter is stable — safe to call from anywhere without stale closure.
+  const dbg = useCallback((msg: string) => {
+    const ts = new Date().toISOString().slice(11, 23);
+    const line = `${ts} ${msg}`;
+    console.log('[Camera]', line);
+    setDebugLog((prev) => [...prev.slice(-14), line]);
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -26,16 +36,24 @@ export function CameraTab({ onLiveChange }: CameraTabProps) {
     };
   }, [onLiveChange]);
 
-  // Force play() after the camera-wrap becomes visible in the viewport.
-  // On some Android Chrome builds, the video decoder doesn't start rendering frames
-  // until play() is called while the element has non-zero layout dimensions.
+  // Force play() after camera-wrap becomes visible in the viewport.
+  // On some Android Chrome builds, the decoder won't render frames until play() is
+  // called while the element has non-zero layout dimensions.
   useEffect(() => {
     if (!cameraOpen) return;
     const video = videoRef.current;
     if (!video) return;
-    console.log('[Camera] cameraOpen=true → calling play(). readyState:', video.readyState);
-    video.play().catch((err) => console.warn('[Camera] post-visibility play() rejected:', err));
-  }, [cameraOpen]);
+    dbg(`cameraOpen→play(). readyState=${video.readyState} ${video.videoWidth}×${video.videoHeight}`);
+    video
+      .play()
+      .then(() => {
+        dbg(`post-visibility play() resolved. paused=${video.paused}`);
+      })
+      .catch((err) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        dbg(`post-visibility play() REJECTED: ${msg}`);
+      });
+  }, [cameraOpen, dbg]);
 
   const startCamera = async () => {
     setError(null);
@@ -53,61 +71,76 @@ export function CameraTab({ onLiveChange }: CameraTabProps) {
       });
       streamRef.current = stream;
 
-      // ── Diagnostic logging ──────────────────────────────────────────
       const track = stream.getVideoTracks()[0];
-      console.log('[Camera] getUserMedia succeeded. Track label:', track?.label);
-      console.log('[Camera] track.getSettings():', track?.getSettings());
+      dbg(`getUserMedia OK. label="${track?.label}"`);
+      const s = track?.getSettings();
+      dbg(`track: ${s?.width}×${s?.height} @${s?.frameRate?.toFixed(1)}fps facing=${s?.facingMode}`);
 
-      // ── Assign srcObject ────────────────────────────────────────────
-      // IMPORTANT: videoRef.current is only non-null here because the <video> element
-      // is always in the DOM (rendered unconditionally below, inside a hidden wrapper).
-      // Putting <video> inside {cameraOpen && ...} caused cameraOpen=false at this point,
-      // so videoRef.current was null and srcObject was never set — the true root cause
-      // of "loadedmetadata never fires".
       const video = videoRef.current;
       if (!video) {
+        dbg('ERROR: videoRef.current is null — element not mounted');
         console.error('[Camera] videoRef.current is null — video element not mounted');
         setError('Internal error: video element unavailable. Please reload.');
         setLoading(false);
         return;
       }
 
-      console.log('[Camera] assigning srcObject to video element');
+      dbg('assigning srcObject...');
       video.srcObject = stream;
-      console.log('[Camera] srcObject assigned. video.readyState:', video.readyState);
+      dbg(`srcObject set. readyState=${video.readyState} ${video.videoWidth}×${video.videoHeight}`);
 
-      // ── Readiness detection: three events + hard timeout fallback ───
-      // Different Android Chrome versions fire different events for getUserMedia streams.
-      // We listen for all three and accept whichever arrives first.
       let readinessHandled = false;
       const markReady = (source: string) => {
         if (readinessHandled) return;
         readinessHandled = true;
-        console.log(`[Camera] ready via "${source}" — ${video.videoWidth}×${video.videoHeight}`);
+        dbg(`ready via "${source}". ${video.videoWidth}×${video.videoHeight} readyState=${video.readyState}`);
         setVideoReady(true);
-        // Explicit play() is required on iOS Safari and some Android Chrome builds
-        // because autoPlay alone does not reliably start playback after srcObject is set.
-        video.play().catch((err) => console.warn('[Camera] play() rejected:', err));
+        video
+          .play()
+          .then(() => {
+            dbg(`play() resolved. paused=${video.paused}`);
+          })
+          .catch((err) => {
+            const msg = err instanceof Error ? err.message : String(err);
+            dbg(`play() REJECTED: ${msg}`);
+            console.warn('[Camera] play() rejected:', err);
+          });
       };
 
-      video.addEventListener('loadedmetadata', () => markReady('loadedmetadata'), { once: true });
-      video.addEventListener('loadeddata',     () => markReady('loadeddata'),     { once: true });
-      video.addEventListener('canplay',        () => markReady('canplay'),        { once: true });
+      video.addEventListener(
+        'loadedmetadata',
+        () => {
+          dbg(`evt:loadedmetadata ${video.videoWidth}×${video.videoHeight} readyState=${video.readyState}`);
+          markReady('loadedmetadata');
+        },
+        { once: true },
+      );
+      video.addEventListener(
+        'loadeddata',
+        () => {
+          dbg(`evt:loadeddata ${video.videoWidth}×${video.videoHeight} readyState=${video.readyState}`);
+          markReady('loadeddata');
+        },
+        { once: true },
+      );
+      video.addEventListener(
+        'canplay',
+        () => {
+          dbg(`evt:canplay ${video.videoWidth}×${video.videoHeight} readyState=${video.readyState}`);
+          markReady('canplay');
+        },
+        { once: true },
+      );
 
-      // Hard fallback: some Android Chrome versions populate frames silently without
-      // firing any of the above events. Poll videoWidth after 1500ms.
       setTimeout(() => {
         if (readinessHandled) return;
         if (video.videoWidth > 0) {
-          console.warn(
-            '[Camera] timeout fallback triggered (no events fired). videoWidth:',
-            video.videoWidth,
-          );
+          dbg(`timeout fallback. videoWidth=${video.videoWidth} readyState=${video.readyState}`);
+          console.warn('[Camera] timeout fallback triggered');
           markReady('timeout-fallback');
         } else {
-          console.warn(
-            '[Camera] timeout fallback: videoWidth still 0 after 1500ms — stream may be stalled',
-          );
+          dbg(`timeout fallback: videoWidth=0 after 1500ms readyState=${video.readyState} — stalled?`);
+          console.warn('[Camera] timeout fallback: videoWidth still 0 after 1500ms — stream may be stalled');
         }
       }, 1500);
 
@@ -117,11 +150,12 @@ export function CameraTab({ onLiveChange }: CameraTabProps) {
       onLiveChange(false);
       let msg = `Camera access failed: ${err instanceof Error ? err.message : String(err)}`;
       if (err instanceof DOMException) {
-        if (err.name === 'NotAllowedError')   msg = 'Camera permission denied. Allow camera access in browser settings.';
-        if (err.name === 'NotFoundError')     msg = 'No camera found on this device.';
-        if (err.name === 'NotReadableError')  msg = 'Camera is in use by another app. Close it and try again.';
+        if (err.name === 'NotAllowedError')      msg = 'Camera permission denied. Allow camera access in browser settings.';
+        if (err.name === 'NotFoundError')        msg = 'No camera found on this device.';
+        if (err.name === 'NotReadableError')     msg = 'Camera is in use by another app. Close it and try again.';
         if (err.name === 'OverconstrainedError') msg = 'Camera does not support the requested resolution.';
       }
+      dbg(`ERROR: ${msg}`);
       setError(msg);
     } finally {
       setLoading(false);
@@ -143,11 +177,8 @@ export function CameraTab({ onLiveChange }: CameraTabProps) {
     canvas.getContext('2d')?.drawImage(video, 0, 0);
 
     const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-    console.log(
-      '[Camera] captured dataUrl length:', dataUrl.length,
-      '(~', Math.round((dataUrl.length * 0.75) / 1024), 'KB).',
-      'Prefix:', dataUrl.substring(0, 80),
-    );
+    dbg(`capture: ${dataUrl.length} chars (~${Math.round((dataUrl.length * 0.75) / 1024)}KB)`);
+
     setPhotoUrl(dataUrl);
 
     const sizeKb = Math.round((dataUrl.length * 0.75) / 1024);
@@ -189,17 +220,10 @@ export function CameraTab({ onLiveChange }: CameraTabProps) {
       <ErrorBox message={error} />
 
       {/*
-        The camera-wrap wrapper is ALWAYS rendered so that <video> is always in the DOM.
-        This is critical: startCamera runs before cameraOpen flips to true, so if <video>
-        were inside {cameraOpen && ...} the ref would be null and srcObject would never be set.
-        We hide the wrapper with visibility+height instead of display:none so the browser
-        engine still processes the video stream and fires readiness events.
-      */}
-      {/*
         position:absolute + top:-110vw keeps the video off-screen (instead of height:0)
-        so it has real layout dimensions. height:0 caused Android Chrome to skip GPU
-        texture allocation for the video, producing black frames even when the stream
-        was technically active and videoWidth > 0.
+        so the video element has real layout dimensions during stream initialization.
+        height:0 + overflow:hidden caused Android Chrome to skip GPU texture allocation,
+        producing black frames even when the stream was active and videoWidth > 0.
       */}
       <div
         style={
@@ -248,6 +272,74 @@ export function CameraTab({ onLiveChange }: CameraTabProps) {
                 <strong style={{ color: 'var(--text-pri)' }}>Photo captured</strong> — {photoMeta}
               </div>
             )}
+          </>
+        )}
+      </div>
+
+      {/* ── On-screen debug panel ── */}
+      <div style={{ marginTop: 12 }}>
+        <button
+          type="button"
+          onClick={() => setDebugOpen((o) => !o)}
+          style={{
+            width: '100%',
+            padding: '6px 10px',
+            background: 'var(--bg)',
+            border: '1px solid var(--border)',
+            borderRadius: 6,
+            color: 'var(--text-sec)',
+            fontSize: 11,
+            fontFamily: 'inherit',
+            cursor: 'pointer',
+            textAlign: 'left',
+          }}
+        >
+          {debugOpen ? '▲' : '▼'} Debug Log ({debugLog.length} lines)
+        </button>
+
+        {debugOpen && (
+          <>
+            <div
+              style={{
+                marginTop: 4,
+                background: '#0a0c0f',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                padding: 8,
+                maxHeight: 220,
+                overflowY: 'auto',
+                fontFamily: 'monospace',
+                fontSize: 10,
+                color: '#a0f0a0',
+                lineHeight: 1.5,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-all',
+              }}
+            >
+              {debugLog.length === 0
+                ? '— no log entries yet —'
+                : debugLog.map((line, i) => <div key={i}>{line}</div>)}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                navigator.clipboard?.writeText(debugLog.join('\n')).catch(() => {});
+              }}
+              style={{
+                marginTop: 4,
+                width: '100%',
+                padding: '6px 10px',
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                color: 'var(--text-sec)',
+                fontSize: 11,
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+              }}
+            >
+              📋 Copy Debug Log
+            </button>
           </>
         )}
       </div>
